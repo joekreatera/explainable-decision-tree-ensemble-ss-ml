@@ -64,6 +64,6 @@ Dataframe that references every node against each other. The cells contain the i
 
 ### References:
 
-K. Trohidis, G. Tsoumakas, G. Kalliris, I. Vlahavas. "Multilabel Classification of Music into Emotions". Proc. 2008 International Conference on Music Information Retrieval (ISMIR 2008), pp. 325-330, Philadelphia, PA, USA, 2008.
-Multilabel Datasets. (2019). http://mulan.sourceforge.net/datasets-mlc.html
-Akbarnejad, A. H., & Baghshah, M. S. (2019). An Efficient Semi-Supervised Multi-label Classifier Capable of Handling Missing Labels. IEEE Transactions on Knowledge and Data Engineering, 31(2), 229–242. https://doi.org/10.1109/TKDE.2018.2833850 with its github on https://github.com/Akbarnejad/ESMC_Implementation
+- K. Trohidis, G. Tsoumakas, G. Kalliris, I. Vlahavas. "Multilabel Classification of Music into Emotions". Proc. 2008 International Conference on Music Information Retrieval (ISMIR 2008), pp. 325-330, Philadelphia, PA, USA, 2008.
+- Multilabel Datasets. (2019). http://mulan.sourceforge.net/datasets-mlc.html
+- Akbarnejad, A. H., & Baghshah, M. S. (2019). An Efficient Semi-Supervised Multi-label Classifier Capable of Handling Missing Labels. IEEE Transactions on Knowledge and Data Engineering, 31(2), 229–242. https://doi.org/10.1109/TKDE.2018.2833850 with its github on https://github.com/Akbarnejad/ESMC_Implementation

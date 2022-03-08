@@ -7,6 +7,12 @@ This github includes the code for "An explainable method based on a Decision Tre
 
 To run the code, the **run.py** script is the main point of execution. With the code, there are two subsets of emotions dataset (Trohidis K, Tsoumakas G et al, 2008), taken out from MULAN Databases (Multilabel Datasets, 2019).
 
+## Datasets
+A common setup for the datasets should be:
+dataset-train.csv : csv that includes ONLY traning data, features and labels
+dataset-test.csv : vsc that includes ONLY test data, features and labels
+label_columns.cols : comma delimited list of the labels column names 
+
 The code needs the following packages:
 ```
 pip install scikit-learn

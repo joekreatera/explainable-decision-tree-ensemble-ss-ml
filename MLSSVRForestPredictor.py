@@ -88,18 +88,6 @@ class MLSSVRForestPredictor(BaseEstimator, ClassifierMixin):
 
         s = (just_over_zero.transpose()).sum()
 
-        """
-        JUST COUNT the ones that can be actually something diferent that -1
-        but the average get it from all, so nodes with a lot of unlabeled, with stay as a bad option for division
-        for i in nodes_list:
-            row = compatibility.loc[i,nodes_list]
-            just_positives_and_zeros = row[ (row>-1).any(axis=1)  ]
-            total = total + (just_positives_and_zeros.mean())
-        return (total/len(nodes_list))
-        """
-
-        # right now, compatibility is calculated just on the ones above 0
-
         t = s/just_over_zero.shape[0]
         # s/len(nodes_list) other hypothesis....
         return t, just_over_zero.shape[0]
@@ -116,9 +104,6 @@ class MLSSVRForestPredictor(BaseEstimator, ClassifierMixin):
         lVar = (leftSquaredSum-(leftSimpleSum*leftSimpleSum)/leftTotal)/leftTotal
         rVar = (rightSquaredSum-rightSimpleSum
                 * rightSimpleSum/rightTotal)/rightTotal
-        # change heuristic to division rather than substraction in favor of similar scaling between two different columns.
-        # careful with pseudo catregorical values as they will give (i.e. 1 and 0) variances of 0.
-        # optimization opportunity, count the different values, if there are two, then just order and gather, do not calculate anything<zoo
 
         if(lVar <= 0 and rVar <= 0):
             return np.inf
@@ -126,7 +111,6 @@ class MLSSVRForestPredictor(BaseEstimator, ClassifierMixin):
         # change to overcome scaling issues
         return tVar/(leftTotal/total*lVar + rightTotal/total*rVar)
 
-        #return tVar - (leftTotal/total*lVar + rightTotal/total*rVar) # original
 
     def variance_reduction_with_labels(self, column_series, column_name, compatibility_matrix):
         ordered_colum = column_series.sort_values()
@@ -184,7 +168,6 @@ class MLSSVRForestPredictor(BaseEstimator, ClassifierMixin):
                                                  max_heur[3],
                                                  max_heur[0],
                                                  column_name)
-        # do not take into account max_heur[0] in the previous structure, is worthless as that measure is the same as compatibility average
         vrcp.set_compatibility_average(max_heur[0])
         return vrcp
 
@@ -247,12 +230,7 @@ class MLSSVRForestPredictor(BaseEstimator, ClassifierMixin):
             else:
                 right_index.append(index)
             row_position = row_position + 1
-        #print(ordered_colum[(ordered_colum < max_heur[3] )].index)
-        #print(len(left_index))
-        #print("-----" + str( max_heur[1]))
-        # ordered_colum[(ordered_colum >= max_heur[3] )].index,
 
-        # print( ordered_colum[(ordered_colum < max_heur[3] )])
         return VarianceReductionChampionProposal(max_heur[2],
                                                  pd.Index(left_index),
                                                  pd.Index(right_index),
@@ -279,15 +257,7 @@ class MLSSVRForestPredictor(BaseEstimator, ClassifierMixin):
         self.generate_children(root_node, 0, tree_index = tree_index )
 
     def generate_children(self, node, recursion, node_compat_coeff=0, tree_index = 0):
-        # print(
-        #     f"generating children rec{recursion} on node with {node.instance_index.size} instances ({self.get_leaf_instance_quantity()})")
-        #for each column generate a champion, compare champions
-        # each champion should have location to the left and to the right
-        #                           average from variance right and left
-        #                           compatibilty average for every node in the left set and right set
 
-        # print(node.instance_index.array)
-        # print(self.instances)
         indices = node.instance_index.array  # get the indices to work
         # get specific instaces to work with
         instance_index = self.instances.loc[indices,:]
@@ -302,18 +272,6 @@ class MLSSVRForestPredictor(BaseEstimator, ClassifierMixin):
         if(recursion > self.max_recursion):
             node.is_leaf = True
             return
-        # get amount of labeled data, if there is not enough labeled data,
-        # TODO: when classifying, if a node is pretty label-empty , return the prediction of the father.
-        # decide that a node is a leaf by getting the amount of unlabeled data (percent or absolute value)
-        # return if this is the case and mark the node as a leaf.
-        # this is an idea to be tested still on 10-dic-2021
-
-        # need to document all the decisions!!!
-
-        # amount of labeled data are those from Y that are different to -1.
-
-        # problem! : do we set the labels during the process or after it. If it is after, this process
-        # cant happen at the same time, and will be a set of nodes that will call something as : unsupervisedFill() <- IMPLEMENTED ALREADY
 
         champion = None
 
@@ -415,11 +373,7 @@ class MLSSVRForestPredictor(BaseEstimator, ClassifierMixin):
         order_right[(np.where(mask_right))] = -1
 
 
-        # summary has all the data to decide the best value with best iteration
-        # value. Ordering will discover the best way to search for
-        # compatibility
 
-        # should order the columns, but keeping the index, gather the first one only
         col = 0
         best_col = 0
         best_compatibility = -np.inf
@@ -435,9 +389,6 @@ class MLSSVRForestPredictor(BaseEstimator, ClassifierMixin):
             best_variance = -np.inf
         else:
             best_variance = np.inf
-        # possible optimization: right now the numpy variance reductioln is done on the entire column set while it could be just on a subset.
-        # indexes of columns to be considered:
-
 
 
         features_count = self.instances.shape[1]
@@ -445,8 +396,7 @@ class MLSSVRForestPredictor(BaseEstimator, ClassifierMixin):
         random_columns = self.random_generator.integers(low=0, high=features_count, size= int(math.log( features_count,2 )) )
         random_counter = 0
         for left_col, right_col, variance in zip(order_left.transpose(), order_right.transpose(), summary[:, BEST_ITERATION_VALUE] ):
-            # print(f'{instance_index.columns[col]} {best_variance} < {variance}')
-            # this is import for 1) speed as get_compatibility_average is expensive, 2) better metric performance
+
 
             if(random_counter >= len(random_columns) or random_columns[random_counter] != col  ):
 
@@ -498,26 +448,6 @@ class MLSSVRForestPredictor(BaseEstimator, ClassifierMixin):
 
                 # print( f'****** {col}** OPT VCRP \t {left_compatibility_average} \t\t {right_compatibility_average}')
             col += 1
-        """
-        if( best_compatibility > node_compat_coeff):
-            # zero was not finally used
-            champion = VarianceReductionChampionProposal(
-                split_index,
-                (best_compatibility_left_list),
-                (best_compatibility_right_list),
-                split_value,
-                var_value,
-                instance_index.columns[best_col]
-            )
-
-            champion.set_compatibility_average(prom)
-            champion.set_compatibility_average_left(best_compatibility_left)
-            champion.set_compatibility_average_right(best_compatibility_right)
-        """
-        # print(champion)
-        # champion = None
-        # print(list(champion.left.array))
-        # print(list(champion.right.array))
 
         if(champion != None):
             # print(f'champion with {champion.column_name} {champion.value}')
@@ -589,11 +519,7 @@ class MLSSVRForestPredictor(BaseEstimator, ClassifierMixin):
         #self.compatibilityMatrix = compatibilityMatrix
         self.tree_log = open(self.base_file_root+'tree_log.txt', 'w')
         print(f"Doing tree generation {self.leaf_relative_instance_quantity} {self.alpha} {self.base_file_root} {self.trees_quantity}")
-        # previous to anything all the columns should be normalized, to be able to compare variances
-        # testing with heuristic as division, so this should not be done.
-        #self.instances = (self.instances-self.instances.min())/(self.instances.max()-self.instances.min())
 
-        # for the amount of trees needed, generate N decision trees and train them all. Remember to select a subset of the columns
         self.trees = []
         for i in range(0,self.trees_quantity):
             # todo: this could be parallelized

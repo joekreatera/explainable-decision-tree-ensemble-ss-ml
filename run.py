@@ -116,34 +116,10 @@ def do_process(dataset_root,dataset_filename,datatest_size,unlabeled_size,experi
         #print('col:  ' + col )
         instance_columns.remove(col)
 
-    """
-    print("---TRAINING SET----")
-    print( train_set.info())
-    print("---TEST SET ----")
-    print( test_set.info())
-    print("------")
-    """
-
 
     compatibility_matrix_A = train_set.loc[labeled_instances.index, label_columns]
     compatibility_matrix_A_T = compatibility_matrix_A.transpose(copy=True)
 
-    """
-
-    # intersection of A*At (transpose). As the labels of an instance are a 0-1 Vector, the multiplication of them
-    # becomes a intersection (multiply 0 or 1 per 0 or 1 is the same as AND)
-    # doubt/question!!!  : if the unsupervised elements have a -1 on label columns:
-    # 1) one labeled and one un labeled with a 1 on label, would set a -1 on label, but should be 0
-    # 2) one labeled and one unlabeled with a 0 on label, would set a 0 on label, it is ok
-    # 3) one unlabeled and one unlabeled would set a 1, its ok? they are actually the same, we dont know what they are
-    #           on the other hand , we cannot say they are the same. Just 50% chance they will be the same in that label
-
-    Option, take out all of the indices that are actually not labeled.
-    Generate the process, add the rest of the table generating a second dot product with all ON -1
-
-    Problem: when taking compatibility.... do not take -1?
-
-    """
 
     intersection = compatibility_matrix_A.dot(compatibility_matrix_A_T)
 
@@ -176,29 +152,6 @@ def do_process(dataset_root,dataset_filename,datatest_size,unlabeled_size,experi
     # compatibility defined as the intersection/union
     compatibility_matrix = intersection/union_minus_intersection
 
-    # check the:
-    # https://towardsdatascience.com/17-types-of-similarity-and-dissimilarity-measures-used-in-data-science-3eb914d2681
-    # where it says Sorensen-Dice. Could be another method:  2times the intersection dividied by (amount of p plus amount of q)
-
-    # another:;
-    # Recently, fractional norms have been brought into light for high-dimensiona data [5].
-    # Charu C. Aggarwal, Alexander Hinneburg, and Daniel A. Keim. On the surprising
-    # behavior of distance metrics in high dimensional space. Lecture Notes in Computer
-    # Science, 1973:420–434, 2001.
-
-    # others:
-    # similarity ratio
-    # percentage similarity / czekanowski coefficient
-    # https://www.umass.edu/landeco/teaching/multivariate/readings/McCune.and.Grace.2002.chapter6.pdf
-    #
-
-    # another idea: instead of  getting the average similarity index, try to set a parameter to know know much of unlabeled data
-    # should count.
-
-    # another idea levenshtein distance applied to binary strings = > Hamming distance. What's the error between two strings of
-    # labels. If we divide hamming distance by the amount on 1's in both, it becomes jaccard... i think.
-
-
     # add the missing unlabeled data matrix
     unlabeled_index = unlabeled_instances.index
 
@@ -225,17 +178,8 @@ def do_process(dataset_root,dataset_filename,datatest_size,unlabeled_size,experi
 
     predictor = MLSSVRForestPredictor(compatibilityMatrix = compatibility_matrix, unlabeledIndex=unlabeled_instances.index, bfr=dataset_root ,
     tag=experiment_name, complete_ss = complete_ss , trees_quantity = 2)
-    #options  0.0,0.3,0.5,0.7
-    # parameters = {'leaf_relative_instance_quantity':[0.02,0.05] ,'unlabeledIndex':[unlabeled_instances.index] , 'compatibilityMatrix':[compatibility_matrix] }
-    # use when testing changes:  parameters = {'alpha':[0.7],'leaf_relative_instance_quantity':[0.05] ,'unlabeledIndex':[unlabeled_instances.index] , 'compatibilityMatrix':[compatibility_matrix] }
 
-    # apparently complete_ss is making things worse on actual test dataset
     parameters = {'trees_quantity':[50,100],'division_op':['max'], 'complete_ss':[True] ,'alpha':[0.6,0.3,0.0,1],'leaf_relative_instance_quantity':[0.05] ,'unlabeledIndex':[unlabeled_instances.index] , 'compatibilityMatrix':[compatibility_matrix] }
-    #parameters = {'trees_quantity':[10],'complete_ss':[True,False] ,'alpha':[1],'leaf_relative_instance_quantity':[0.02] ,'unlabeledIndex':[unlabeled_instances.index] , 'compatibilityMatrix':[compatibility_matrix] }
-
-
-    # the problem is CV=2 , it is too small. Question, when having train dataset, cv=1?
-    # previous: scoring=make_scorer(custom_precision_score) , this should have never happened...
 
     gs = GridSearchCV( estimator = predictor, param_grid=parameters, scoring=make_scorer(custom_precision_score,needs_proba=True), cv=2, refit=False)
     #print(y_train.shape)
@@ -245,12 +189,7 @@ def do_process(dataset_root,dataset_filename,datatest_size,unlabeled_size,experi
     besties =gs.best_params_
     print("Best params " + str(besties["division_op"])  + " \t\t"  +  str(besties["alpha"]) + " \t\t" + str(besties["leaf_relative_instance_quantity"]) + " \t\t" + str(besties["complete_ss"]) + " \t\t" + str(besties["trees_quantity"]) )
 
-    """
-    Compatibility matrix now has :
-    -1  on all rowsxcolumns that are not labeled
-    X is the same as before
-    Y has -1 in all the labels that are simulated unlabeled
-    """
+
     predictor = MLSSVRForestPredictor(leaf_relative_instance_quantity = gs.best_params_['leaf_relative_instance_quantity'],
                                 compatibilityMatrix = compatibility_matrix,
                                 unlabeledIndex=unlabeled_instances.index,
@@ -262,37 +201,18 @@ def do_process(dataset_root,dataset_filename,datatest_size,unlabeled_size,experi
                                 division_op = gs.best_params_['division_op']
                                 )
     predictor.fit(X,y)
-    """
-    y is modified in place!
-    """
 
     y_true = test_set[label_columns]
     instancesToTest = test_set[instance_columns]
 
-    #remember: joe divided the train set to unlabel some of the instances.That's why previous simple efforts did not function to get the avg prediction
-    #y_true = train_set.loc[labeled_instances.index, label_columns]
-    #instancesToTest = train_set.loc[labeled_instances.index, instance_columns]
-
-    # the other method is predict() that outputs 1 or 0 <<----- this might be needed for comparing one last time.
     predictions, probabilities = predictor.predict_with_proba(instancesToTest, print_prediction_log = True)
-
-    # print(predictions)
-    #prediction_arr = []
-    #for i in predictions:
-    #    arr = i[1].values.tolist()
-    #    prediction_arr.append(arr[:])
-        # test: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html#sklearn.metrics.accuracy_scoret
 
     prediction_arr = predictions
     probabilty_arr = probabilities
 
     y_arr = y_true.to_numpy()
 
-    print(y_arr.shape)
-    print(len(prediction_arr) , len(prediction_arr[0]) )
 
-    print(y_arr)
-    print(prediction_arr)
     results = open(dataset_root + '/' + experiment_name +".txt",'w')
     results.write(f'Hyperparams selected {gs.best_params_}\n')
     # score_avg_precision = average_precision_score(y_arr, prediction_arr)
@@ -324,11 +244,6 @@ def do_process(dataset_root,dataset_filename,datatest_size,unlabeled_size,experi
     results.write(f'TN\tFN\tTP\tFP\n')
     for i in ml_confussion_matrix:
         results.write(f'{i[0,0]}\t{i[1,0]}\t{i[1,1]}\t{i[0,1]}\n')
-
-    # results.close()
-
-    # saveFile(y,"filled_out_all.csv", idx = True)
-
 
 
     # Compute ROC curve and ROC area for each class
@@ -377,13 +292,6 @@ def do_process(dataset_root,dataset_filename,datatest_size,unlabeled_size,experi
                    ''.format(roc_auc["macro"]),
              color='navy', linestyle=':', linewidth=4)
 
-    """
-    colors = cycle(['aqua', 'darkorange', 'cornflowerblue'])
-    for i, color in zip(range(0,label_columns_size), colors):
-        plt.plot(fpr[i], tpr[i], color=color, lw=2,
-                 label='ROC curve of class {0} (area = {1:0.2f})'
-                 ''.format(i, roc_auc[i]))
-    """
 
     plt.plot([0, 1], [0, 1], 'k--', lw=2)
     plt.xlim([0.0, 1.0])
@@ -398,31 +306,6 @@ def do_process(dataset_root,dataset_filename,datatest_size,unlabeled_size,experi
     finalTime = time.time()
     took = finalTime - originalTime
     print("Time : " + str(took) )
-
-
-
-    """
-    Was just a test
-    # random predictor
-    y_random = []
-
-    def ran():
-        if random() > 0.5:
-            return 1
-        return 0
-
-    for index, row in instancesToTest.iterrows():
-        inst = [ran(),ran(),ran(),ran(),ran(),ran(),ran(),ran(),ran(),ran(),ran(),ran(),ran(),ran()]
-        y_random.append(inst)
-
-    score_avg_precision = average_precision_score(y_arr, y_random)
-    print(score_avg_precision)
-    #score_accuracy  = accuracy_score(y_arr, prediction_arr)
-
-
-    #print(score_accuracy)
-    """
-
 
 
 # for backwards compatibility

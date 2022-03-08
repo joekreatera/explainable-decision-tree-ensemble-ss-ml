@@ -316,7 +316,7 @@ def do_process(dataset_root,dataset_filename,datatest_size,unlabeled_size,experi
     for i in range(0,1000):
         dataset_specific = dataset_root.split('/')
         ds = dataset_specific[ len(dataset_specific)-1 ]
-        file_to_load = dataset_root + "/../" + ds + f"explanation_tree_{i}.txt"
+        file_to_load = dataset_root + "/" + ds + f"explanation_tree_{i}.txt"
 
         try:
             file_to_load = open(file_to_load)

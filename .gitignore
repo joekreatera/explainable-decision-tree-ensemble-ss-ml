@@ -2,3 +2,5 @@
 *.pyc
 *.txt
 *.png
+final_explanation.csv
+pred_rule_explain.csv
